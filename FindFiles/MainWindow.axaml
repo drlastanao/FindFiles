@@ -1,0 +1,47 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:FindFiles.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+        x:Class="FindFiles.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="FindFiles">
+
+    <Grid RowDefinitions="Auto, Auto, *" Margin="10">
+        
+        <!-- Search Inputs -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto, *, Auto" RowDefinitions="Auto, Auto, Auto" Margin="0,0,0,10">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Directory:" VerticalAlignment="Center" Margin="0,0,10,5"/>
+            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding DirectoryPath}" Margin="0,0,0,5"/>
+            
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Name Pattern:" VerticalAlignment="Center" Margin="0,0,10,5"/>
+            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding NamePattern}" Watermark="*.cs or MyFile.txt" Margin="0,0,0,5"/>
+
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Content Pattern:" VerticalAlignment="Center" Margin="0,0,10,5"/>
+            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ContentPattern}" Watermark="Text to find" Margin="0,0,0,5"/>
+        </Grid>
+
+        <!-- Options and Action -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="20" Margin="0,0,0,10">
+            <CheckBox IsChecked="{Binding Recursive}" Content="Recursive"/>
+            <CheckBox IsChecked="{Binding UseRegex}" Content="Use Regex"/>
+            <Button Command="{Binding SearchCommand}" Content="Search" Width="100" HorizontalContentAlignment="Center"/>
+            <TextBlock Text="{Binding Results.Count, StringFormat='Found: {0}'}" VerticalAlignment="Center"/>
+            <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}" Width="100"/>
+        </StackPanel>
+
+        <!-- Results -->
+        <DataGrid Grid.Row="2" ItemsSource="{Binding Results}" 
+                  SelectedItem="{Binding SelectedResult}"
+                  IsReadOnly="True" 
+                  DoubleTapped="OnResultDoubleTapped">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="File" Binding="{Binding FileName}" Width="200"/>
+                <DataGridTextColumn Header="Line" Binding="{Binding LineNumber}" Width="Auto"/>
+                <DataGridTextColumn Header="Preview" Binding="{Binding MatchPreview}" Width="*"/>
+                <DataGridTextColumn Header="Path" Binding="{Binding FilePath}" Width="300"/>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</Window>
