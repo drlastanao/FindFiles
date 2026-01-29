@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using FindFiles.Models;
+using Avalonia.Threading;
 using FindFiles.Services;
 
 namespace FindFiles.ViewModels;
@@ -25,6 +26,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     [ObservableProperty] private string _statusMessage = "Listo";
     [ObservableProperty] private int _filesScanned;
+    [ObservableProperty] private int _filesSkipped;
     
     public bool CanSearch => !IsBusy;
 
@@ -74,6 +76,7 @@ public partial class MainWindowViewModel : ObservableObject
         IsBusy = true;
         StatusMessage = "Buscando...";
         FilesScanned = 0;
+        FilesSkipped = 0;
         Results.Clear();
 
         var progress = new System.Progress<string>(file => 
@@ -83,23 +86,39 @@ public partial class MainWindowViewModel : ObservableObject
         });
 
         try
+
         {
-            await foreach (var result in _searchService.SearchAsync(
-                DirectoryPath, 
-                NamePattern, 
-                ContentPattern, 
-                UseRegex, 
-                Recursive, 
-                progress,
-                _cts.Token))
+            await Task.Run(async () => 
             {
-                Results.Add(result);
-            }
+                await foreach (var result in _searchService.SearchAsync(
+                    DirectoryPath, 
+                    NamePattern, 
+                    ContentPattern, 
+                    UseRegex, 
+                    Recursive, 
+                    progress,
+                    _cts.Token))
+                {
+                    if (result.IsSkipped)
+                    {
+                        await Dispatcher.UIThread.InvokeAsync(() => FilesSkipped++);
+                    }
+                    else
+                    {
+                        await Dispatcher.UIThread.InvokeAsync(() => Results.Add(result));
+                    }
+                }
+            });
             StatusMessage = $"Búsqueda completada. Encontrados {Results.Count} ficheros.";
         }
          catch (System.OperationCanceledException) 
          {
              StatusMessage = "Búsqueda cancelada.";
+         }
+         catch (System.Exception ex)
+         {
+             StatusMessage = $"Error: {ex.Message}";
+             System.Diagnostics.Debug.WriteLine($"Search error: {ex}");
          }
         finally
         {

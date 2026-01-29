@@ -115,11 +115,31 @@ public class FileSearchService : IFileSearchService
             progress?.Report(file);
             token.ThrowIfCancellationRequested();
 
-            // Filter by Name (if strictly required and not handled by OS enum OR if using regex)
-            if (nameRegex != null)
+            SearchResult? errorResult = null;
+
+            try
             {
-                if (!nameRegex.IsMatch(Path.GetFileName(file)))
-                    continue;
+                // Filter by Name
+                if (nameRegex != null)
+                {
+                    if (!nameRegex.IsMatch(Path.GetFileName(file)))
+                        continue;
+                }
+            }
+            catch (Exception ex) 
+            {
+                errorResult = new SearchResult 
+                { 
+                    FilePath = file, 
+                    IsSkipped = true, 
+                    ErrorMessage = ex.Message 
+                };
+            } 
+
+            if (errorResult != null)
+            {
+                yield return errorResult;
+                continue;
             }
 
             // Filter by Content
@@ -131,40 +151,87 @@ public class FileSearchService : IFileSearchService
             {
                 // Read file
                 int lineNumber = 0;
+                IEnumerator<string>? lineEnumerator = null;
                 
-                IEnumerable<string> lines = Enumerable.Empty<string>();
                 try
                 {
-                     lines = File.ReadLines(file);
+                     // File.ReadLines returns lazy enum, GetEnumerator opens the file
+                     lineEnumerator = File.ReadLines(file).GetEnumerator();
                 }
-                catch (IOException) { continue; } // Skip unreadable files
-                catch (UnauthorizedAccessException) { continue; }
-                catch (System.Security.SecurityException) { continue; }
+                catch (Exception ex) 
+                { 
+                    errorResult = new SearchResult 
+                    { 
+                        FilePath = file, 
+                        IsSkipped = true, 
+                        ErrorMessage = ex.Message 
+                    };
+                }
 
-                IEnumerator<string> lineEnumerator = lines.GetEnumerator();
-                while (true)
+                if (errorResult != null)
                 {
-                    string line;
-                    try
-                    {
-                        if (!lineEnumerator.MoveNext()) break;
-                        line = lineEnumerator.Current;
-                    }
-                    catch (IOException) { break; } // Error reading specific line
-                    catch (UnauthorizedAccessException) { break; }
-                     catch (System.Exception) { break; } // Catch all for file reading safety
+                    yield return errorResult;
+                    continue;
+                }
 
-                    lineNumber++;
-                    token.ThrowIfCancellationRequested();
-                    
-                    if (contentRegex != null && contentRegex.IsMatch(line))
+                if (lineEnumerator == null) continue; // Should not happen given logic above
+
+                using (lineEnumerator) 
+                {
+                    while (true)
                     {
-                        yield return new SearchResult 
+                        string line = null!;
+                        bool hasMore = false;
+                        SearchResult? lineError = null;
+
+                        try
+                        {
+                            hasMore = lineEnumerator.MoveNext();
+                            if (hasMore) line = lineEnumerator.Current;
+                        }
+                        catch (Exception ex) 
                         { 
-                            FilePath = file, 
-                            LineNumber = lineNumber, 
-                            MatchPreview = line.Trim() 
-                        };
+                            lineError = new SearchResult 
+                            { 
+                                FilePath = file, 
+                                IsSkipped = true, 
+                                ErrorMessage = $"Error reading line: {ex.Message}" 
+                            };
+                        }
+
+                        if (lineError != null)
+                        {
+                            yield return lineError;
+                            break; // Stop reading this file
+                        }
+
+                        if (!hasMore) break;
+
+                        lineNumber++;
+                        
+                        // Check cancellation occasionally but safe here
+                        if (token.IsCancellationRequested)
+                        {
+                            token.ThrowIfCancellationRequested(); 
+                        }
+                        
+                        bool isMatch = false;
+                        try
+                        {
+                            if (contentRegex != null && contentRegex.IsMatch(line))
+                                isMatch = true;
+                        }
+                        catch (Exception) { } 
+
+                        if (isMatch)
+                        {
+                            yield return new SearchResult 
+                            { 
+                                FilePath = file, 
+                                LineNumber = lineNumber, 
+                                MatchPreview = line.Trim() 
+                            };
+                        }
                     }
                 }
             }

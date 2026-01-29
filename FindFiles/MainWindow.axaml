@@ -30,10 +30,11 @@
             <StackPanel Orientation="Horizontal" Spacing="20">
                 <CheckBox IsChecked="{Binding Recursive}" Content="Recursivo"/>
                 <CheckBox IsChecked="{Binding UseRegex}" Content="Usar Regex"/>
-                <Button Command="{Binding SearchCommand}" Content="Buscar" Width="100" HorizontalContentAlignment="Center" IsVisible="{Binding CanSearch}"/>
+                <Button Command="{Binding SearchCommand}" Content="Buscar" Width="100" HorizontalContentAlignment="Center" IsEnabled="{Binding CanSearch}"/>
                 <Button Command="{Binding CancelCommand}" Content="Cancelar" Width="100" HorizontalContentAlignment="Center" IsVisible="{Binding IsBusy}"/>
                 <TextBlock Text="{Binding Results.Count, StringFormat='Encontrados: {0}'}" VerticalAlignment="Center"/>
                 <TextBlock Text="{Binding FilesScanned, StringFormat='Escaneados: {0}'}" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding FilesSkipped, StringFormat='Saltados: {0}'}" VerticalAlignment="Center" Foreground="OrangeRed" IsVisible="{Binding FilesSkipped}"/>
             </StackPanel>
             <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}" Height="4"/>
             <TextBlock Text="{Binding StatusMessage}" FontSize="12" Foreground="Gray" TextTrimming="CharacterEllipsis"/>

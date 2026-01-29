@@ -76,4 +76,15 @@ public class FileSearchServiceTests : IDisposable
         Assert.Single(results);
         Assert.EndsWith("notes.md", results[0].FilePath);
     }
+    [Fact]
+    public async Task Search_UserScenario_CrashReproduction()
+    {
+        // Setup
+        var file = Path.Combine(_testDir, "page1.txt");
+        File.WriteAllText(file, "Line with 315 number");
+        
+        var results = await _service.SearchAsync(_testDir, "page*", "315", useRegex: false, recursive: true, progress: null, CancellationToken.None).ToListAsync();
+        
+        Assert.Single(results);
+    }
 }

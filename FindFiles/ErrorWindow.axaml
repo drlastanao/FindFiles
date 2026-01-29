@@ -1,0 +1,15 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="200"
+        Width="600" Height="400"
+        WindowStartupLocation="CenterScreen"
+        x:Class="FindFiles.ErrorWindow"
+        Title="Error No Controlado">
+    <Grid RowDefinitions="Auto, *, Auto" Margin="20">
+        <TextBlock Grid.Row="0" Text="Ha ocurrido un error inesperado:" FontWeight="Bold" Margin="0,0,0,10"/>
+        <TextBox Grid.Row="1" Name="ErrorText" IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True" Margin="0,0,0,20"/>
+        <Button Grid.Row="2" Content="Cerrar" HorizontalAlignment="Center" Click="OnCloseClick"/>
+    </Grid>
+</Window>
