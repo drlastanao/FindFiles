@@ -30,6 +30,7 @@
             <StackPanel Orientation="Horizontal" Spacing="20">
                 <CheckBox IsChecked="{Binding Recursive}" Content="Recursivo"/>
                 <CheckBox IsChecked="{Binding UseRegex}" Content="Usar Regex"/>
+                <CheckBox IsChecked="{Binding ExcludeBinaryFiles}" Content="Excluir Binarios"/>
                 <Button Command="{Binding SearchCommand}" Content="Buscar" Width="100" HorizontalContentAlignment="Center" IsEnabled="{Binding CanSearch}"/>
                 <Button Command="{Binding CancelCommand}" Content="Cancelar" Width="100" HorizontalContentAlignment="Center" IsVisible="{Binding IsBusy}"/>
                 <TextBlock Text="{Binding Results.Count, StringFormat='Encontrados: {0}'}" VerticalAlignment="Center"/>

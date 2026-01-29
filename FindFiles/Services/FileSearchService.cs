@@ -12,12 +12,22 @@ namespace FindFiles.Services;
 
 public class FileSearchService : IFileSearchService
 {
+    private static readonly HashSet<string> BinaryExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".ico", ".tiff",
+        ".bin", ".exe", ".dll", ".so", ".dylib", ".o", ".obj",
+        ".zip", ".tar", ".gz", ".rar", ".7z",
+        ".pyc", ".class"
+    };
+
     public async IAsyncEnumerable<SearchResult> SearchAsync(
         string directory,
         string namePattern,
         string contentPattern,
         bool useRegex,
         bool recursive,
+        bool excludeBinaryFiles,
         IProgress<string>? progress,
         [EnumeratorCancellation] CancellationToken token)
     {
@@ -112,6 +122,12 @@ public class FileSearchService : IFileSearchService
                 }
 
                 if (!nameMatch) continue;
+
+                if (excludeBinaryFiles && BinaryExtensions.Contains(Path.GetExtension(file)))
+                {
+                    continue;
+                }
+
 
                 // Match Content
                  if (string.IsNullOrWhiteSpace(contentPattern))

@@ -19,6 +19,8 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private string _contentPattern = string.Empty;
     [ObservableProperty] private bool _useRegex = false;
     [ObservableProperty] private bool _recursive = true;
+    [ObservableProperty] private bool _excludeBinaryFiles = true;
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanSearch))]
     private bool _isBusy;
@@ -96,6 +98,7 @@ public partial class MainWindowViewModel : ObservableObject
                     ContentPattern, 
                     UseRegex, 
                     Recursive, 
+                    ExcludeBinaryFiles,
                     progress,
                     _cts.Token))
                 {

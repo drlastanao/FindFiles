@@ -14,6 +14,7 @@ public interface IFileSearchService
         string contentPattern, 
         bool useRegex, 
         bool recursive,
+        bool excludeBinaryFiles,
         IProgress<string>? progress,
         CancellationToken token);
 }
