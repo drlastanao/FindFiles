@@ -41,7 +41,7 @@ public class FileSearchServiceTests : IDisposable
     [Fact]
     public async Task SearchByName_Wildcard_FindsFiles()
     {
-        var results = await _service.SearchAsync(_testDir, "*.txt", null, useRegex: false, recursive: false, CancellationToken.None).ToListAsync();
+        var results = await _service.SearchAsync(_testDir, "*.txt", null, useRegex: false, recursive: false, progress: null, CancellationToken.None).ToListAsync();
         Assert.Single(results);
         Assert.EndsWith("test1.txt", results[0].FilePath);
     }
@@ -49,14 +49,14 @@ public class FileSearchServiceTests : IDisposable
     [Fact]
     public async Task SearchByName_Regex_FindsFiles()
     {
-        var results = await _service.SearchAsync(_testDir, "^test.*", null, useRegex: true, recursive: false, CancellationToken.None).ToListAsync();
+        var results = await _service.SearchAsync(_testDir, "^test.*", null, useRegex: true, recursive: false, progress: null, CancellationToken.None).ToListAsync();
         Assert.Equal(2, results.Count); // test1.txt, test2.log
     }
 
     [Fact]
     public async Task SearchByContent_Partial_FindsFiles()
     {
-        var results = await _service.SearchAsync(_testDir, "", "World", useRegex: false, recursive: false, CancellationToken.None).ToListAsync();
+        var results = await _service.SearchAsync(_testDir, "", "World", useRegex: false, recursive: false, progress: null, CancellationToken.None).ToListAsync();
         Assert.Single(results);
         Assert.Contains("Hello World", results[0].MatchPreview);
     }
@@ -64,7 +64,7 @@ public class FileSearchServiceTests : IDisposable
     [Fact]
     public async Task SearchRecursive_FindsDeepFiles()
     {
-        var results = await _service.SearchAsync(_testDir, "*.cs", null, useRegex: false, recursive: true, CancellationToken.None).ToListAsync();
+        var results = await _service.SearchAsync(_testDir, "*.cs", null, useRegex: false, recursive: true, progress: null, CancellationToken.None).ToListAsync();
         Assert.Single(results);
         Assert.EndsWith("deep.cs", results[0].FilePath);
     }
@@ -72,7 +72,7 @@ public class FileSearchServiceTests : IDisposable
     [Fact]
     public async Task SearchByContent_Regex_FindsFiles()
     {
-        var results = await _service.SearchAsync(_testDir, "", "TODO:.*", useRegex: true, recursive: false, CancellationToken.None).ToListAsync();
+        var results = await _service.SearchAsync(_testDir, "", "TODO:.*", useRegex: true, recursive: false, progress: null, CancellationToken.None).ToListAsync();
         Assert.Single(results);
         Assert.EndsWith("notes.md", results[0].FilePath);
     }

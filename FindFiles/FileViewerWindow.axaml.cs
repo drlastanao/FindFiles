@@ -19,7 +19,8 @@ public partial class FileViewerWindow : Window
         var editor = this.FindControl<TextEditor>("Editor");
         if (editor != null && File.Exists(filePath))
         {
-             editor.Load(filePath);
+             // Use Document property instead of Load method
+             editor.Document = new AvaloniaEdit.Document.TextDocument(File.ReadAllText(filePath));
              
              if (!string.IsNullOrWhiteSpace(contentPattern))
              {
@@ -41,6 +42,6 @@ public partial class FileViewerWindow : Window
                  // But also "marcado en un color que se vea bien".
              }
         }
-        Title = $"File Viewer - {filePath}";
+        Title = $"Visor de Ficheros - {filePath}";
     }
 }

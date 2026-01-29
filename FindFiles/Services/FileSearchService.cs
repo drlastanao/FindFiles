@@ -18,6 +18,7 @@ public class FileSearchService : IFileSearchService
         string contentPattern,
         bool useRegex,
         bool recursive,
+        IProgress<string>? progress,
         [EnumeratorCancellation] CancellationToken token)
     {
         if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
@@ -98,8 +99,20 @@ public class FileSearchService : IFileSearchService
             }
         }
 
-        foreach (var file in files)
+        var enumerator = files.GetEnumerator();
+        string file = null!;
+        while (true)
         {
+            try
+            {
+                if (!enumerator.MoveNext()) break;
+                file = enumerator.Current;
+            }
+            catch (UnauthorizedAccessException) { continue; }
+            catch (IOException) { continue; } // Handle cases like "No such device or address" during enumeration if possible, though mostly happens on access
+            catch (System.Security.SecurityException) { continue; }
+
+            progress?.Report(file);
             token.ThrowIfCancellationRequested();
 
             // Filter by Name (if strictly required and not handled by OS enum OR if using regex)
@@ -108,9 +121,6 @@ public class FileSearchService : IFileSearchService
                 if (!nameRegex.IsMatch(Path.GetFileName(file)))
                     continue;
             }
-            // If not using regex and we already used OS enum, we trust it. 
-            // But wait, if useRegex=false and we used OS enum, we are good.
-            // What if namePattern is empty? matched all. Good.
 
             // Filter by Content
             if (string.IsNullOrWhiteSpace(contentPattern))
@@ -121,13 +131,29 @@ public class FileSearchService : IFileSearchService
             {
                 // Read file
                 int lineNumber = 0;
-                bool fileMatched = false;
                 
-                // Skip binary files? hard to detect reliably/quickly without reading.
-                // We'll just try to read as text.
-                
-                foreach (var line in File.ReadLines(file))
+                IEnumerable<string> lines = Enumerable.Empty<string>();
+                try
                 {
+                     lines = File.ReadLines(file);
+                }
+                catch (IOException) { continue; } // Skip unreadable files
+                catch (UnauthorizedAccessException) { continue; }
+                catch (System.Security.SecurityException) { continue; }
+
+                IEnumerator<string> lineEnumerator = lines.GetEnumerator();
+                while (true)
+                {
+                    string line;
+                    try
+                    {
+                        if (!lineEnumerator.MoveNext()) break;
+                        line = lineEnumerator.Current;
+                    }
+                    catch (IOException) { break; } // Error reading specific line
+                    catch (UnauthorizedAccessException) { break; }
+                     catch (System.Exception) { break; } // Catch all for file reading safety
+
                     lineNumber++;
                     token.ThrowIfCancellationRequested();
                     
@@ -139,8 +165,6 @@ public class FileSearchService : IFileSearchService
                             LineNumber = lineNumber, 
                             MatchPreview = line.Trim() 
                         };
-                        fileMatched = true; // We continue to find all matches or just one?
-                        // Generally grep shows all matches.
                     }
                 }
             }

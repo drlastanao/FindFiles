@@ -4,31 +4,39 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+        Width="1024" Height="768"
+        WindowStartupLocation="CenterScreen"
         x:Class="FindFiles.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Title="FindFiles">
+        Title="Buscador de Ficheros">
 
     <Grid RowDefinitions="Auto, Auto, *" Margin="10">
         
         <!-- Search Inputs -->
         <Grid Grid.Row="0" ColumnDefinitions="Auto, *, Auto" RowDefinitions="Auto, Auto, Auto" Margin="0,0,0,10">
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="Directory:" VerticalAlignment="Center" Margin="0,0,10,5"/>
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="Directorio:" VerticalAlignment="Center" Margin="0,0,10,5"/>
             <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding DirectoryPath}" Margin="0,0,0,5"/>
+            <Button Grid.Row="0" Grid.Column="2" Content="..." Command="{Binding BrowseCommand}" Margin="5,0,0,5"/>
             
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="Name Pattern:" VerticalAlignment="Center" Margin="0,0,10,5"/>
-            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding NamePattern}" Watermark="*.cs or MyFile.txt" Margin="0,0,0,5"/>
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="Nombre (Patrón):" VerticalAlignment="Center" Margin="0,0,10,5"/>
+            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding NamePattern}" Watermark="*.cs o Fichero.txt" Margin="0,0,0,5"/>
 
-            <TextBlock Grid.Row="2" Grid.Column="0" Text="Content Pattern:" VerticalAlignment="Center" Margin="0,0,10,5"/>
-            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ContentPattern}" Watermark="Text to find" Margin="0,0,0,5"/>
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="Contenido:" VerticalAlignment="Center" Margin="0,0,10,5"/>
+            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding ContentPattern}" Watermark="Texto a buscar" Margin="0,0,0,5"/>
         </Grid>
 
         <!-- Options and Action -->
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="20" Margin="0,0,0,10">
-            <CheckBox IsChecked="{Binding Recursive}" Content="Recursive"/>
-            <CheckBox IsChecked="{Binding UseRegex}" Content="Use Regex"/>
-            <Button Command="{Binding SearchCommand}" Content="Search" Width="100" HorizontalContentAlignment="Center"/>
-            <TextBlock Text="{Binding Results.Count, StringFormat='Found: {0}'}" VerticalAlignment="Center"/>
-            <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}" Width="100"/>
+        <StackPanel Grid.Row="1" Orientation="Vertical" Spacing="10" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal" Spacing="20">
+                <CheckBox IsChecked="{Binding Recursive}" Content="Recursivo"/>
+                <CheckBox IsChecked="{Binding UseRegex}" Content="Usar Regex"/>
+                <Button Command="{Binding SearchCommand}" Content="Buscar" Width="100" HorizontalContentAlignment="Center" IsVisible="{Binding CanSearch}"/>
+                <Button Command="{Binding CancelCommand}" Content="Cancelar" Width="100" HorizontalContentAlignment="Center" IsVisible="{Binding IsBusy}"/>
+                <TextBlock Text="{Binding Results.Count, StringFormat='Encontrados: {0}'}" VerticalAlignment="Center"/>
+                <TextBlock Text="{Binding FilesScanned, StringFormat='Escaneados: {0}'}" VerticalAlignment="Center"/>
+            </StackPanel>
+            <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBusy}" Height="4"/>
+            <TextBlock Text="{Binding StatusMessage}" FontSize="12" Foreground="Gray" TextTrimming="CharacterEllipsis"/>
         </StackPanel>
 
         <!-- Results -->
@@ -37,10 +45,10 @@
                   IsReadOnly="True" 
                   DoubleTapped="OnResultDoubleTapped">
             <DataGrid.Columns>
-                <DataGridTextColumn Header="File" Binding="{Binding FileName}" Width="200"/>
-                <DataGridTextColumn Header="Line" Binding="{Binding LineNumber}" Width="Auto"/>
-                <DataGridTextColumn Header="Preview" Binding="{Binding MatchPreview}" Width="*"/>
-                <DataGridTextColumn Header="Path" Binding="{Binding FilePath}" Width="300"/>
+                <DataGridTextColumn Header="Fichero" Binding="{Binding FileName}" Width="200"/>
+                <DataGridTextColumn Header="Línea" Binding="{Binding LineNumber}" Width="Auto"/>
+                <DataGridTextColumn Header="Vista Previa" Binding="{Binding MatchPreview}" Width="*"/>
+                <DataGridTextColumn Header="Ruta" Binding="{Binding FilePath}" Width="300"/>
             </DataGrid.Columns>
         </DataGrid>
     </Grid>

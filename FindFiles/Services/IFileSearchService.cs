@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,6 +13,7 @@ public interface IFileSearchService
         string namePattern, 
         string contentPattern, 
         bool useRegex, 
-        bool recursive, 
+        bool recursive,
+        IProgress<string>? progress,
         CancellationToken token);
 }

@@ -18,8 +18,15 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private string _contentPattern = string.Empty;
     [ObservableProperty] private bool _useRegex = false;
     [ObservableProperty] private bool _recursive = true;
-    [ObservableProperty] private bool _isBusy;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanSearch))]
+    private bool _isBusy;
     [ObservableProperty] private SearchResult? _selectedResult;
+
+    [ObservableProperty] private string _statusMessage = "Listo";
+    [ObservableProperty] private int _filesScanned;
+    
+    public bool CanSearch => !IsBusy;
 
     public ObservableCollection<SearchResult> Results { get; } = new();
 
@@ -32,18 +39,48 @@ public partial class MainWindowViewModel : ObservableObject
     public MainWindowViewModel() : this(new FileSearchService()) { }
 
     [RelayCommand]
+    private async Task Browse()
+    {
+        var topLevel = Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop 
+            ? desktop.MainWindow 
+            : null;
+
+        if (topLevel == null) return;
+
+        var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new Avalonia.Platform.Storage.FolderPickerOpenOptions
+        {
+            Title = "Seleccionar Directorio",
+            AllowMultiple = false
+        });
+
+        if (folders.Count > 0)
+        {
+            DirectoryPath = folders[0].Path.LocalPath;
+        }
+    }
+
+    [RelayCommand]
+    private void Cancel()
+    {
+        _cts?.Cancel();
+    }
+
+    [RelayCommand]
     private async Task Search()
     {
-        if (IsBusy)
-        {
-            _cts?.Cancel();
-            IsBusy = false;
-            return;
-        }
+        if (IsBusy) return;
 
         _cts = new CancellationTokenSource();
         IsBusy = true;
+        StatusMessage = "Buscando...";
+        FilesScanned = 0;
         Results.Clear();
+
+        var progress = new System.Progress<string>(file => 
+        {
+            FilesScanned++;
+            StatusMessage = $"Escaneando: {file}";
+        });
 
         try
         {
@@ -53,14 +90,16 @@ public partial class MainWindowViewModel : ObservableObject
                 ContentPattern, 
                 UseRegex, 
                 Recursive, 
+                progress,
                 _cts.Token))
             {
                 Results.Add(result);
             }
+            StatusMessage = $"Búsqueda completada. Encontrados {Results.Count} ficheros.";
         }
          catch (System.OperationCanceledException) 
          {
-             // Ignore
+             StatusMessage = "Búsqueda cancelada.";
          }
         finally
         {
