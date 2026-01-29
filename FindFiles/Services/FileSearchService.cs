@@ -24,32 +24,8 @@ public class FileSearchService : IFileSearchService
         if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
             yield break;
 
-        var searchOption = recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly;
-        IEnumerable<string> files;
-
-        // Optimization: utilize OS file enumeration for simple wildcards if searching by name and not using regex
-        if (!useRegex && !string.IsNullOrWhiteSpace(namePattern) && !namePattern.Contains(";") && !namePattern.Contains("|"))
-        {
-             try
-             {
-                 files = Directory.EnumerateFiles(directory, namePattern, searchOption);
-             }
-             catch (UnauthorizedAccessException) 
-             { 
-                 yield break; // simplistic error handling
-             }
-        }
-        else
-        {
-            try
-            {
-                files = Directory.EnumerateFiles(directory, "*", searchOption);
-            }
-             catch (UnauthorizedAccessException) 
-             { 
-                 yield break;
-             }
-        }
+        var stack = new Stack<string>();
+        stack.Push(directory);
 
         Regex? nameRegex = null;
         Regex? contentRegex = null;
@@ -63,28 +39,9 @@ public class FileSearchService : IFileSearchService
         }
         else
         {
-            // Convert wildcards to regex for in-memory filtering if needed
-            // If we didn't use OS enumeration (e.g. we used it but now double checking, or namePattern was empty but we need it? No.)
-            // Actually, if we used OS enumeration for namePattern, we don't need to check name again technically, but doing so provides consistency if OS differs.
-            // But let's assume OS is correct for name.
-            
-            // For content, we certainly need a matcher.
-            if (!string.IsNullOrWhiteSpace(contentPattern))
-            {
-                var pattern = "^" + Regex.Escape(contentPattern).Replace("\\*", ".*").Replace("\\?", ".") + "$";
-                // Note: User said "approximación (prueb*)". This usually means 'Starts with prueb'.
-                // If content search is "prueb*", regex: "^prueb.*$" or just "prueb.*"?
-                // "Grep" search usually finds substring.
-                // If I search "foo", I find "foobar".
-                // So Wildcard in content: "*foo*" ?
-                // Let's treat "Wildcard" mode for Content as: 
-                // The user string IS a wildcard pattern that must match the line? Or substring?
-                // Usually "Text Content" search is "Contains" unless wildcards are used.
-                // If user types "prueb*", they mean a word starting with prueb.
-                // I will use regex conversion:
-                // If pattern contains * or ?, assume wildcard pattern.
-                // Else, assume "Contains" (substring).
-                
+             // Prepare content regex for wildcard or exact match
+             if (!string.IsNullOrWhiteSpace(contentPattern))
+             {
                 string regexPattern;
                 if (contentPattern.Contains('*') || contentPattern.Contains('?'))
                 {
@@ -94,147 +51,154 @@ public class FileSearchService : IFileSearchService
                 {
                     regexPattern = Regex.Escape(contentPattern);
                 }
-                
                 contentRegex = new Regex(regexPattern, RegexOptions.Compiled | RegexOptions.IgnoreCase);
-            }
+             }
         }
 
-        var enumerator = files.GetEnumerator();
-        string file = null!;
-        while (true)
+        while (stack.Count > 0)
         {
-            try
-            {
-                if (!enumerator.MoveNext()) break;
-                file = enumerator.Current;
-            }
-            catch (UnauthorizedAccessException) { continue; }
-            catch (IOException) { continue; } // Handle cases like "No such device or address" during enumeration if possible, though mostly happens on access
-            catch (System.Security.SecurityException) { continue; }
-
-            progress?.Report(file);
             token.ThrowIfCancellationRequested();
+            string currentDir = stack.Pop();
 
-            SearchResult? errorResult = null;
-
+            IEnumerable<string> files = Enumerable.Empty<string>();
+            
+            SearchResult? dirError = null;
             try
             {
-                // Filter by Name
-                if (nameRegex != null)
-                {
-                    if (!nameRegex.IsMatch(Path.GetFileName(file)))
-                        continue;
-                }
-            }
-            catch (Exception ex) 
-            {
-                errorResult = new SearchResult 
-                { 
-                    FilePath = file, 
-                    IsSkipped = true, 
-                    ErrorMessage = ex.Message 
-                };
-            } 
+                // If not using regex and simple pattern, we could use the OS filter, but valid for TopDirectoryOnly
+                // However, to keep it simple and consistent with manual recursion, let's just use "*" and filter in memory 
+                // OR use the pattern if it's safe. 
+                // Let's use "*" to ensure we process errors our way, or simple pattern if possible to reduce memory/overhead.
+                // But OS pattern matching is faster.
+                string searchPattern = (!useRegex && !string.IsNullOrWhiteSpace(namePattern) && !namePattern.Contains(";") && !namePattern.Contains("|")) 
+                                        ? namePattern 
+                                        : "*";
 
-            if (errorResult != null)
+                files = Directory.EnumerateFiles(currentDir, searchPattern, SearchOption.TopDirectoryOnly);
+            }
+            catch (Exception ex)
             {
-                yield return errorResult;
+                dirError = new SearchResult 
+                { 
+                     FilePath = currentDir, 
+                     IsSkipped = true, 
+                     ErrorMessage = $"Access Denied/Error: {ex.Message}" 
+                };
+            }
+
+            if (dirError != null)
+            {
+                yield return dirError;
                 continue;
             }
 
-            // Filter by Content
-            if (string.IsNullOrWhiteSpace(contentPattern))
+            foreach (var file in files)
             {
-                yield return new SearchResult { FilePath = file };
+                token.ThrowIfCancellationRequested();
+                progress?.Report(file);
+
+                SearchResult? errorResult = null;
+                bool nameMatch = true;
+
+                // Match Name if we didn't use OS pattern
+                if (nameRegex != null)
+                {
+                    if (!nameRegex.IsMatch(Path.GetFileName(file)))
+                        nameMatch = false;
+                }
+                else if (!(!useRegex && !string.IsNullOrWhiteSpace(namePattern) && !namePattern.Contains(";") && !namePattern.Contains("|")))
+                {
+                   // covered
+                }
+
+                if (!nameMatch) continue;
+
+                // Match Content
+                 if (string.IsNullOrWhiteSpace(contentPattern))
+                {
+                    yield return new SearchResult { FilePath = file };
+                }
+                else
+                {
+                    var result = await ProcessFileContentAsync(file, contentRegex, token);
+                    if (result != SearchResult.Empty)
+                        yield return result;
+                }
             }
-            else
+
+            if (recursive)
             {
-                // Read file
-                int lineNumber = 0;
-                IEnumerator<string>? lineEnumerator = null;
-                
+                SearchResult? recError = null;
                 try
                 {
-                     // File.ReadLines returns lazy enum, GetEnumerator opens the file
-                     lineEnumerator = File.ReadLines(file).GetEnumerator();
+                    foreach (var dir in Directory.EnumerateDirectories(currentDir))
+                    {
+                        stack.Push(dir);
+                    }
                 }
-                catch (Exception ex) 
-                { 
-                    errorResult = new SearchResult 
+                catch (Exception ex)
+                {
+                     recError = new SearchResult 
                     { 
-                        FilePath = file, 
-                        IsSkipped = true, 
-                        ErrorMessage = ex.Message 
+                         FilePath = currentDir, 
+                         IsSkipped = true, 
+                         ErrorMessage = $"Directory Access Error: {ex.Message}" 
                     };
                 }
-
-                if (errorResult != null)
+                
+                if (recError != null)
                 {
-                    yield return errorResult;
-                    continue;
-                }
-
-                if (lineEnumerator == null) continue; // Should not happen given logic above
-
-                using (lineEnumerator) 
-                {
-                    while (true)
-                    {
-                        string line = null!;
-                        bool hasMore = false;
-                        SearchResult? lineError = null;
-
-                        try
-                        {
-                            hasMore = lineEnumerator.MoveNext();
-                            if (hasMore) line = lineEnumerator.Current;
-                        }
-                        catch (Exception ex) 
-                        { 
-                            lineError = new SearchResult 
-                            { 
-                                FilePath = file, 
-                                IsSkipped = true, 
-                                ErrorMessage = $"Error reading line: {ex.Message}" 
-                            };
-                        }
-
-                        if (lineError != null)
-                        {
-                            yield return lineError;
-                            break; // Stop reading this file
-                        }
-
-                        if (!hasMore) break;
-
-                        lineNumber++;
-                        
-                        // Check cancellation occasionally but safe here
-                        if (token.IsCancellationRequested)
-                        {
-                            token.ThrowIfCancellationRequested(); 
-                        }
-                        
-                        bool isMatch = false;
-                        try
-                        {
-                            if (contentRegex != null && contentRegex.IsMatch(line))
-                                isMatch = true;
-                        }
-                        catch (Exception) { } 
-
-                        if (isMatch)
-                        {
-                            yield return new SearchResult 
-                            { 
-                                FilePath = file, 
-                                LineNumber = lineNumber, 
-                                MatchPreview = line.Trim() 
-                            };
-                        }
-                    }
+                    yield return recError;
                 }
             }
         }
+    }
+
+    private async Task<SearchResult> ProcessFileContentAsync(string file, Regex? contentRegex, CancellationToken token)
+    {
+         int lineNumber = 0;
+         // Use FileStream with shared read to avoid locking issues where possible, though File.ReadLines is easier but less control.
+         // Let's use FileStream for max robustness.
+         
+         try
+         {
+             using (var fs = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+             using (var reader = new StreamReader(fs))
+             {
+                 string? line;
+                 while ((line = await reader.ReadLineAsync(token)) != null)
+                 {
+                     lineNumber++;
+                     if (contentRegex != null && contentRegex.IsMatch(line))
+                     {
+                         return new SearchResult 
+                         { 
+                             FilePath = file, 
+                             LineNumber = lineNumber, 
+                             MatchPreview = line.Trim() 
+                         };
+                     }
+                 }
+             }
+         }
+         catch (Exception ex)
+         {
+             return new SearchResult 
+             { 
+                 FilePath = file, 
+                 IsSkipped = true, 
+                 ErrorMessage = ex.Message 
+             };
+         }
+
+         // No match found in file, but read successfully. Use a marker? 
+         // The caller expects NO result if no match.
+         // But we must return SOMETHING or null? 
+         // AsyncEnumerable yields. 
+         // Refactor: This method returns Task<SearchResult>. 
+         // If no match, we return an "Empty" result?
+         // Better: Let's inline this logic or return nullable.
+         
+         return SearchResult.Empty; // Need to handle this
     }
 }

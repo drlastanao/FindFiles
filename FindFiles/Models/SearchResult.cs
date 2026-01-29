@@ -8,4 +8,6 @@ public class SearchResult
     public string MatchPreview { get; set; } = string.Empty;
     public bool IsSkipped { get; set; }
     public string ErrorMessage { get; set; } = string.Empty;
+
+    public static SearchResult Empty { get; } = new SearchResult();
 }

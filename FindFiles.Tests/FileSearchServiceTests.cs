@@ -87,4 +87,62 @@ public class FileSearchServiceTests : IDisposable
         
         Assert.Single(results);
     }
+
+    [Fact]
+    public async Task Search_LockedFile_HandlesGracefully()
+    {
+        var lockedFile = Path.Combine(_testDir, "locked.txt");
+        File.WriteAllText(lockedFile, "This content is secretive");
+
+        // Open with FileShare.None to prevent other processes (the search service) from reading
+        using (var fs = File.Open(lockedFile, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+             // Search while locked. We expect it to try reading content because we provide a content pattern.
+             var results = await _service.SearchAsync(_testDir, "locked.txt", "secretive", useRegex: false, recursive: false, progress: null, CancellationToken.None).ToListAsync();
+             
+             Assert.Single(results);
+             var result = results[0];
+             Assert.True(result.IsSkipped, "Expected result to be marked as skipped");
+             Assert.NotNull(result.ErrorMessage);
+             Assert.EndsWith("locked.txt", result.FilePath);
+        }
+    }
+    [Fact]
+    public async Task Search_InaccessibleDirectory_HandlesGracefully()
+    {
+        // On Linux/Unix we can simulate this with chmod.
+        // On Windows it's harder without ACLs. 
+        // Assuming Linux based on user OS info.
+        
+        var secretDir = Path.Combine(_testDir, "SecretDir");
+        Directory.CreateDirectory(secretDir);
+        var secretFile = Path.Combine(secretDir, "secret.txt");
+        File.WriteAllText(secretFile, "content");
+        
+        try 
+        {
+            // Remove permissions (chmod 000)
+            File.SetUnixFileMode(secretDir, UnixFileMode.None);
+        }
+        catch (PlatformNotSupportedException)
+        {
+            // Skip test on Windows or non-Unix if cannot set mode easily
+            return; 
+        }
+
+        try
+        {
+            var results = await _service.SearchAsync(_testDir, "secret.txt", null, useRegex: false, recursive: true, progress: null, CancellationToken.None).ToListAsync();
+            
+            // Should contain a result for the directory being skipped/error
+            // Because we yield an error result for the directory failure.
+            Assert.NotEmpty(results);
+            Assert.Contains(results, r => r.IsSkipped && r.FilePath.Contains("SecretDir"));
+        }
+        finally
+        {
+            // Restore permissions so cleanup can delete it
+            File.SetUnixFileMode(secretDir, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+    }
 }
