@@ -1,0 +1,20 @@
+  Determinando los proyectos que se van a restaurar...
+  Todos los proyectos están actualizados para la restauración.
+  FindFiles -> /home/davidrubio/Antigravity/FindFiles/FindFiles/bin/Debug/net10.0/FindFiles.dll
+  FindFiles.Tests -> /home/davidrubio/Antigravity/FindFiles/FindFiles.Tests/bin/Debug/net10.0/FindFiles.Tests.dll
+Serie de pruebas para /home/davidrubio/Antigravity/FindFiles/FindFiles.Tests/bin/Debug/net10.0/FindFiles.Tests.dll (.NETCoreApp,Version=v10.0)
+Versión 18.0.1 (x64) de VSTest
+
+Iniciando la ejecución de pruebas, espere...
+1 archivos de prueba en total coincidieron con el patrón especificado.
+[xUnit.net 00:00:00.18]     FindFiles.Tests.FileSearchServiceTests.Search_HiddenDirectory_SkipsIfRequested [FAIL]
+  Con error FindFiles.Tests.FileSearchServiceTests.Search_HiddenDirectory_SkipsIfRequested [5 ms]
+  Mensaje de error:
+   Assert.DoesNotContain() Failure: Filter matched in collection
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              ↓ (pos 4)
+Collection: [SearchResult { ErrorMessage = "", FileName = "notes.md", FilePath = "/tmp/FindFilesTest_e6513b36-9a37-448f-95a7-2999bda"···, IsSkipped = False, LineNumber = -1, ··· }, SearchResult { ErrorMessage = "", FileName = "test2.log", FilePath = "/tmp/FindFilesTest_e6513b36-9a37-448f-95a7-2999bda"···, IsSkipped = False, LineNumber = -1, ··· }, SearchResult { ErrorMessage = "", FileName = "test1.txt", FilePath = "/tmp/FindFilesTest_e6513b36-9a37-448f-95a7-2999bda"···, IsSkipped = False, LineNumber = -1, ··· }, SearchResult { ErrorMessage = "", FileName = "deep.cs", FilePath = "/tmp/FindFilesTest_e6513b36-9a37-448f-95a7-2999bda"···, IsSkipped = False, LineNumber = -1, ··· }, SearchResult { ErrorMessage = "", FileName = "hidden.txt", FilePath = "/tmp/FindFilesTest_e6513b36-9a37-448f-95a7-2999bda"···, IsSkipped = False, LineNumber = -1, ··· }]
+  Seguimiento de la pila:
+     at FindFiles.Tests.FileSearchServiceTests.Search_HiddenDirectory_SkipsIfRequested() in /home/davidrubio/Antigravity/FindFiles/FindFiles.Tests/FileSearchServiceTests.cs:line 176
+--- End of stack trace from previous location ---
+
+Con error! - Con error:     1, Superado:     9, Omitido:     0, Total:    10, Duración: 68 ms - FindFiles.Tests.dll (net10.0)

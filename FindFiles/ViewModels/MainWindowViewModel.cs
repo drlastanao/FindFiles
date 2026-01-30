@@ -99,6 +99,7 @@ public partial class MainWindowViewModel : ObservableObject
                     UseRegex, 
                     Recursive, 
                     ExcludeBinaryFiles,
+                    true,
                     progress,
                     _cts.Token))
                 {

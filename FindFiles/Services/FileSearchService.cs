@@ -28,6 +28,7 @@ public class FileSearchService : IFileSearchService
         bool useRegex,
         bool recursive,
         bool excludeBinaryFiles,
+        bool excludeHidden,
         IProgress<string>? progress,
         [EnumeratorCancellation] CancellationToken token)
     {
@@ -149,6 +150,14 @@ public class FileSearchService : IFileSearchService
                 {
                     foreach (var dir in Directory.EnumerateDirectories(currentDir))
                     {
+                        if (excludeHidden)
+                        {
+                            var dirInfo = new DirectoryInfo(dir);
+                            if ((dirInfo.Attributes & FileAttributes.Hidden) != 0)
+                            {
+                                continue;
+                            }
+                        }
                         stack.Push(dir);
                     }
                 }

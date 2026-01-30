@@ -41,7 +41,8 @@ public class FileSearchServiceTests : IDisposable
     [Fact]
     public async Task SearchByName_Wildcard_FindsFiles()
     {
-        var results = await _service.SearchAsync(_testDir, "*.txt", null, useRegex: false, recursive: true, excludeBinaryFiles: false, progress: null, CancellationToken.None).ToListAsync();
+
+        var results = await _service.SearchAsync(_testDir, "*.txt", null, useRegex: false, recursive: true, excludeBinaryFiles: false, excludeHidden: true, progress: null, CancellationToken.None).ToListAsync();
         Assert.Single(results);
         Assert.EndsWith("test1.txt", results[0].FilePath);
     }
@@ -49,14 +50,15 @@ public class FileSearchServiceTests : IDisposable
     [Fact]
     public async Task SearchByName_Regex_FindsFiles()
     {
-        var results = await _service.SearchAsync(_testDir, "^test.*", null, useRegex: true, recursive: false, excludeBinaryFiles: false, progress: null, CancellationToken.None).ToListAsync();
+
+        var results = await _service.SearchAsync(_testDir, "^test.*", null, useRegex: true, recursive: false, excludeBinaryFiles: false, excludeHidden: true, progress: null, CancellationToken.None).ToListAsync();
         Assert.Equal(2, results.Count); // test1.txt, test2.log
     }
 
     [Fact]
     public async Task SearchByContent_Partial_FindsFiles()
     {
-        var results = await _service.SearchAsync(_testDir, "", "World", useRegex: false, recursive: false, excludeBinaryFiles: false, progress: null, CancellationToken.None).ToListAsync();
+        var results = await _service.SearchAsync(_testDir, "", "World", useRegex: false, recursive: false, excludeBinaryFiles: false, excludeHidden: true, progress: null, CancellationToken.None).ToListAsync();
         Assert.Single(results);
         Assert.Contains("Hello World", results[0].MatchPreview);
     }
@@ -64,7 +66,7 @@ public class FileSearchServiceTests : IDisposable
     [Fact]
     public async Task SearchRecursive_FindsDeepFiles()
     {
-        var results = await _service.SearchAsync(_testDir, "*.cs", null, useRegex: false, recursive: true, excludeBinaryFiles: false, progress: null, CancellationToken.None).ToListAsync();
+        var results = await _service.SearchAsync(_testDir, "*.cs", null, useRegex: false, recursive: true, excludeBinaryFiles: false, excludeHidden: true, progress: null, CancellationToken.None).ToListAsync();
         Assert.Single(results);
         Assert.EndsWith("deep.cs", results[0].FilePath);
     }
@@ -72,7 +74,7 @@ public class FileSearchServiceTests : IDisposable
     [Fact]
     public async Task SearchByContent_Regex_FindsFiles()
     {
-        var results = await _service.SearchAsync(_testDir, "", "TODO:.*", useRegex: true, recursive: false, excludeBinaryFiles: false, progress: null, CancellationToken.None).ToListAsync();
+        var results = await _service.SearchAsync(_testDir, "", "TODO:.*", useRegex: true, recursive: false, excludeBinaryFiles: false, excludeHidden: true, progress: null, CancellationToken.None).ToListAsync();
         Assert.Single(results);
         Assert.EndsWith("notes.md", results[0].FilePath);
     }
@@ -83,7 +85,7 @@ public class FileSearchServiceTests : IDisposable
         var file = Path.Combine(_testDir, "page1.txt");
         File.WriteAllText(file, "Line with 315 number");
         
-        var results = await _service.SearchAsync(_testDir, "page*", "315", useRegex: false, recursive: true, excludeBinaryFiles: false, progress: null, CancellationToken.None).ToListAsync();
+        var results = await _service.SearchAsync(_testDir, "page*", "315", useRegex: false, recursive: true, excludeBinaryFiles: false, excludeHidden: true, progress: null, CancellationToken.None).ToListAsync();
         
         Assert.Single(results);
     }
@@ -98,7 +100,7 @@ public class FileSearchServiceTests : IDisposable
         using (var fs = File.Open(lockedFile, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
         {
              // Search while locked. We expect it to try reading content because we provide a content pattern.
-             var results = await _service.SearchAsync(_testDir, "locked.txt", "secretive", useRegex: false, recursive: false, excludeBinaryFiles: false, progress: null, CancellationToken.None).ToListAsync();
+             var results = await _service.SearchAsync(_testDir, "locked.txt", "secretive", useRegex: false, recursive: false, excludeBinaryFiles: false, excludeHidden: true, progress: null, CancellationToken.None).ToListAsync();
              
              Assert.Single(results);
              var result = results[0];
@@ -132,7 +134,7 @@ public class FileSearchServiceTests : IDisposable
 
         try
         {
-            var results = await _service.SearchAsync(_testDir, "secret.txt", null, useRegex: false, recursive: true, excludeBinaryFiles: false, progress: null, CancellationToken.None).ToListAsync();
+            var results = await _service.SearchAsync(_testDir, "secret.txt", null, useRegex: false, recursive: true, excludeBinaryFiles: false, excludeHidden: true, progress: null, CancellationToken.None).ToListAsync();
             
             // Should contain a result for the directory being skipped/error
             // Because we yield an error result for the directory failure.
@@ -152,12 +154,31 @@ public class FileSearchServiceTests : IDisposable
         File.WriteAllText(exeFile, "binary content");
 
         // Search with excludeBinaryFiles: false
-        var resultsWithBinary = await _service.SearchAsync(_testDir, "*", null, useRegex: false, recursive: false, excludeBinaryFiles: false, progress: null, CancellationToken.None).ToListAsync();
+        var resultsWithBinary = await _service.SearchAsync(_testDir, "*", null, useRegex: false, recursive: false, excludeBinaryFiles: false, excludeHidden: false, progress: null, CancellationToken.None).ToListAsync();
         Assert.Contains(resultsWithBinary, r => r.FilePath.EndsWith("app.exe"));
 
         // Search with excludeBinaryFiles: true
-        var resultsWithoutBinary = await _service.SearchAsync(_testDir, "*", null, useRegex: false, recursive: false, excludeBinaryFiles: true, progress: null, CancellationToken.None).ToListAsync();
+        var resultsWithoutBinary = await _service.SearchAsync(_testDir, "*", null, useRegex: false, recursive: false, excludeBinaryFiles: true, excludeHidden: false, progress: null, CancellationToken.None).ToListAsync();
         Assert.DoesNotContain(resultsWithoutBinary, r => r.FilePath.EndsWith("app.exe"));
+    }
+
+    [Fact]
+    public async Task Search_HiddenDirectory_SkipsIfRequested()
+    {
+        var hiddenDir = Path.Combine(_testDir, ".HiddenDir");
+        Directory.CreateDirectory(hiddenDir);
+        // On Windows we need to set the attribute explicitly. On Linux the dot prefix is enough but SetAttributes is harmless or ignored.
+        File.SetAttributes(hiddenDir, FileAttributes.Hidden); 
+        var hiddenFile = Path.Combine(hiddenDir, "hidden.txt");
+        File.WriteAllText(hiddenFile, "You can't see me");
+
+         // Search with excludeHidden: true
+        var resultsExcluded = await _service.SearchAsync(_testDir, "*", null, useRegex: false, recursive: true, excludeBinaryFiles: false, excludeHidden: true, progress: null, CancellationToken.None).ToListAsync();
+        Assert.DoesNotContain(resultsExcluded, r => r.FilePath.Contains(".HiddenDir"));
+
+         // Search with excludeHidden: false
+        var resultsIncluded = await _service.SearchAsync(_testDir, "*", null, useRegex: false, recursive: true, excludeBinaryFiles: false, excludeHidden: false, progress: null, CancellationToken.None).ToListAsync();
+        Assert.Contains(resultsIncluded, r => r.FilePath.EndsWith("hidden.txt"));
     }
 }
 
