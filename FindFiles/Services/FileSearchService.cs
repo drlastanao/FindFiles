@@ -66,6 +66,11 @@ public class FileSearchService : IFileSearchService
              }
         }
 
+
+
+        var lastProgressTime = DateTime.MinValue;
+        int filesSinceLastReport = 0;
+
         while (stack.Count > 0)
         {
             token.ThrowIfCancellationRequested();
@@ -106,7 +111,16 @@ public class FileSearchService : IFileSearchService
             foreach (var file in files)
             {
                 token.ThrowIfCancellationRequested();
-                progress?.Report(file);
+                
+                // Throttling progress
+                var now = DateTime.UtcNow;
+                filesSinceLastReport++;
+                if ((now - lastProgressTime).TotalMilliseconds > 250 || filesSinceLastReport > 100)
+                {
+                    progress?.Report(file);
+                    lastProgressTime = now;
+                    filesSinceLastReport = 0;
+                }
 
                 SearchResult? errorResult = null;
                 bool nameMatch = true;
@@ -200,7 +214,7 @@ public class FileSearchService : IFileSearchService
                          { 
                              FilePath = file, 
                              LineNumber = lineNumber, 
-                             MatchPreview = line.Trim() 
+                             MatchPreview = line.Length > 500 ? line.Substring(0, 500) + "..." : line.Trim() 
                          };
                      }
                  }
